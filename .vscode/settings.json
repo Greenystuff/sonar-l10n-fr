@@ -1,0 +1,9 @@
+{
+  // core_fr.properties is ISO-8859-1 in the working tree, as declared in .gitattributes.
+  // Without this, editors default to UTF-8 and every accented character shows up as a
+  // replacement character -- and saving would rewrite the file in the wrong encoding.
+  "[properties]": {
+    "files.encoding": "iso88591"
+  },
+  "files.autoGuessEncoding": false
+}
