@@ -58,6 +58,13 @@ import java.util.TreeMap;
  * plugin bundle would shadow the core bundle for no gain, which
  * {@code FrenchPackExtensionBundleTest} rejects.
  *
+ * <p>Write these descriptions as plain text, whatever the English does. The front end
+ * registers exactly one rich-text element, {@code productName}, so react-intl reads any
+ * other tag as one it has no handler for, fails to format, and falls back to the raw
+ * string: {@code <br/>} and {@code <strong>} reach the screen as characters. Several
+ * English descriptions carry markup and show it that way, so this is a rendering
+ * limitation rather than a translation choice -- worth reporting upstream.
+ *
  * <p>An admin token is required -- the endpoint is not public. The run is read-only.
  */
 public final class SettingsKeys {
@@ -90,15 +97,9 @@ public final class SettingsKeys {
       }
       put(messages, core, "property." + key + ".name", text(definition, "name"));
       put(messages, core, "property." + key + ".description", text(definition, "description"));
-      if (definition.has("fields")) {
-        for (JsonElement field : definition.getAsJsonArray("fields")) {
-          JsonObject object = field.getAsJsonObject();
-          String fieldKey = text(object, "key");
-          if (fieldKey != null) {
-            put(messages, core, "property." + key + "." + fieldKey + ".name", text(object, "name"));
-          }
-        }
-      }
+      // Deliberately not the fields of a property set. The front end builds that table's
+      // header straight from the definition -- {s.name}{s.description} -- with no
+      // formatMessage in between, so no key can reach those two labels.
       collect(categories, text(definition, "category"), text(definition, "subCategory"));
     }
 
