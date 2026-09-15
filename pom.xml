@@ -65,14 +65,16 @@
 
 		<sonar.pluginClass>org.sonar.plugins.l10n.FrenchPackPlugin</sonar.pluginClass>
 		<sonar.version>26.9.0.129388</sonar.version>
-		<!-- Plancher, pas cible : sonar-packaging-maven-plugin recopie cette version dans
-		     l'entete Sonar-Version du manifeste, et le serveur refuse de demarrer si son
-		     propre plugin API est plus ancien. Declarer la derniere API disponible
-		     exclurait donc sans raison des serveurs parfaitement capables de charger ce
-		     pack, qui n'utilise que org.sonar.api.Plugin.
-		     13.10.0.4437 est l'API embarquee par les builds 26.9 anterieurs a la release
-		     officielle (26.9.0.129388, qui embarque la 14.0.0.4498). -->
-		<sonar.plugin.api.version>13.10.0.4437</sonar.plugin.api.version>
+		<!-- The API shipped by the targeted server, so the build fails here rather than at
+		     runtime if something this pack uses ever leaves the public API. -->
+		<sonar.plugin.api.version>14.0.0.4498</sonar.plugin.api.version>
+		<!-- Written to the Sonar-Version manifest header, which the server reads as a
+		     MINIMUM: it refuses to start when its own plugin API is older. Left unset,
+		     sonar-packaging-maven-plugin copies the compile version there instead, which
+		     would lock the pack to 26.9 and later for no reason - it only implements
+		     org.sonar.api.Plugin, unchanged for years. 9.14.0.375 is what the published
+		     10.0.0 declares, and what makes the Marketplace range [24.12,LATEST] hold. -->
+		<sonar.plugin.api.min.version>9.14.0.375</sonar.plugin.api.min.version>
 
 		<maven.build.timestamp.format>yyyy-MM-dd'T'HH:mm:ss.SSSZ</maven.build.timestamp.format>
 		<!--suppress UnresolvedMavenProperty -->
@@ -225,6 +227,10 @@
 					     removed from manifest of l10n plugins" when it is present. -->
 					<pluginName>French Pack</pluginName>
 					<pluginDescription>Language pack for French</pluginDescription>
+					<!-- Sonar-Version = firstNonNull(pluginApiMinVersion, sonar-plugin-api version).
+					     Set explicitly so that compiling against a newer API never narrows the range
+					     of servers able to load the pack. -->
+					<pluginApiMinVersion>${sonar.plugin.api.min.version}</pluginApiMinVersion>
 				</configuration>
 			</plugin>
 
