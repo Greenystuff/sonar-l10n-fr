@@ -123,6 +123,14 @@
 			<version>3.27.7</version>
 			<scope>test</scope>
 		</dependency>
+		<!-- Used by SettingsKeys to read /api/settings/list_definitions. It already comes in
+		     transitively through sonar-core, but a tool should not depend on that by accident. -->
+		<dependency>
+			<groupId>com.google.code.gson</groupId>
+			<artifactId>gson</artifactId>
+			<version>2.14.0</version>
+			<scope>test</scope>
+		</dependency>
 		<!-- Also translated by this language pack: the Clean as You Code plugin ships its
 		     own bundle, org/sonar/l10n/cayc.properties, and this pack now carries
 		     cayc_fr.properties for it. I18nMatchers requires the default bundle on the

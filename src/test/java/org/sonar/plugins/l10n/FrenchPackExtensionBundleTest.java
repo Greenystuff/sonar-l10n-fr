@@ -134,8 +134,14 @@ public class FrenchPackExtensionBundleTest {
     SoftAssertions assertions = new SoftAssertions();
     french.keySet().stream()
       .filter(key -> PUNCTUATION_WITHOUT_NON_BREAKING_SPACE
-        // URLs, and the CI/CD style shorthand, carry colons that are not punctuation.
-        .matcher(french.getString(key).replaceAll("https?://(\\w+:\\w+@)?", "").replace("CI/CD", ""))
+        // URLs, the CI/CD style shorthand, and code tokens carry colons that are not
+        // punctuation. A French colon is always followed by a space, so a colon glued to
+        // the next character belongs to something being quoted, such as the rule key
+        // java:S1195 the "Restrict Scope of Coding Rules" setting documents itself with.
+        .matcher(french.getString(key)
+          .replaceAll("https?://(\\w+:\\w+@)?", "")
+          .replace("CI/CD", "")
+          .replaceAll("(?<=\\w)[:;](?=\\S)", ""))
         .matches())
       .forEach(key -> assertions.fail(
         "Punctuation must be preceded with a non-breaking space for key '" + key + "': " + french.getString(key)));
