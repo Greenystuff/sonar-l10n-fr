@@ -148,6 +148,22 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
+		<!-- Same reason as the Clean as You Code plugin above: the PHP analyzer ships
+		     org/sonar/l10n/php.properties, which carries the labels of its rule
+		     parameters, and this pack now translates them in php_fr.properties.
+		     Version pinned to the one bundled in sonar.version. -->
+		<dependency>
+			<groupId>org.sonarsource.php</groupId>
+			<artifactId>sonar-php-plugin</artifactId>
+			<version>3.60.0.16641</version>
+			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>*</groupId>
+					<artifactId>*</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 		<!-- Dependencies which are translated by this language pack.
 		     Only one file is used from this artifact: org/sonar/l10n/core.properties, the
 		     reference bundle the tests compare core_fr.properties against. None of its code
