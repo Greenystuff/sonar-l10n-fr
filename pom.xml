@@ -113,6 +113,23 @@
 			<version>3.27.7</version>
 			<scope>test</scope>
 		</dependency>
+		<!-- Also translated by this language pack: the Clean as You Code plugin ships its
+		     own bundle, org/sonar/l10n/cayc.properties, and this pack now carries
+		     cayc_fr.properties for it. I18nMatchers requires the default bundle on the
+		     classpath to check the translation is in sync, which is exactly the point of
+		     declaring it here. Version pinned to the one bundled in sonar.version. -->
+		<dependency>
+			<groupId>org.sonarsource.plugins.cayc</groupId>
+			<artifactId>sonar-cayc-plugin</artifactId>
+			<version>2.6.0.3665</version>
+			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>*</groupId>
+					<artifactId>*</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 		<!-- Dependencies which are translated by this language pack.
 		     Only one file is used from this artifact: org/sonar/l10n/core.properties, the
 		     reference bundle the tests compare core_fr.properties against. None of its code
