@@ -98,24 +98,47 @@ public class FrenchPackPluginTest {
 		I18nMatchers.assertBundlesUpToDate();
 	}
 
+	/**
+	 * The packaged bundle must be pure ASCII, every other character escaped.
+	 *
+	 * <p>Only {@code native2ascii-maven-plugin} does that, so this test is meaningful when
+	 * run through Maven and vacuous otherwise -- it reads the processed copy in
+	 * {@code target/classes}, not the source file.
+	 *
+	 * <p>It used to pin one translation, {@code login.login_to_sonarqube}, and assert its
+	 * exact escaped form. That made an ordinary wording change look like an escaping
+	 * regression. Asserting the property itself -- no byte above 127, and escapes actually
+	 * present -- covers strictly more and survives translation work.
+	 */
 	@Test
 	public void non_acsii_character_should_be_escaped() throws IOException {
+		SoftAssertions assertions = new SoftAssertions();
+		boolean escapeFound = false;
 		try (BufferedReader lineReader = new BufferedReader(new InputStreamReader(
 				Objects.requireNonNull(FrenchPackPlugin.class.getResourceAsStream(L10N_PATH + "core_fr.properties")),
 				StandardCharsets.ISO_8859_1
 		))) {
 			String line;
-			boolean matched = false;
+			int lineNumber = 0;
 			while ((line = lineReader.readLine()) != null) {
-				if (line.startsWith("login.login_to_sonarqube=")) {
-					matched = true;
-					// This test must be executed with Maven because only 'native2ascii-maven-plugin' plugin escape characters
-					assertThat(line).isEqualTo("login.login_to_sonarqube=Connexion \\u00E0 SonarQube");
+				++lineNumber;
+				for (int i = 0; i < line.length(); i++) {
+					if (line.charAt(i) > 127) {
+						assertions.fail("Non-ASCII character at line " + lineNumber + ", column " + (i + 1)
+								+ ": must be escaped by native2ascii-maven-plugin. Line: " + line);
+						break;
+					}
 				}
+				escapeFound = escapeFound || ESCAPED_CHARACTER.matcher(line).find();
 			}
-			assertThat(matched).isTrue();
 		}
+		assertions.assertThat(escapeFound)
+				.describedAs("The bundle is expected to contain escaped characters")
+				.isTrue();
+		assertions.assertAll();
 	}
+
+	private static final Pattern ESCAPED_CHARACTER = Pattern.compile("\\\\u[0-9a-fA-F]{4}");
 
 	private static final Pattern REGEX_START_SPACE = Pattern.compile("^(?<space>\\s*)(?<value>.*?)$");
 
@@ -430,22 +453,83 @@ public class FrenchPackPluginTest {
 		assertions.assertAll();
 	}
 
-	/*
-	 * Can match complex placeholder definition.
-	 * <p>
-	 * For example:
-	 * {warningsCount} {warningsCount, plural, one {warning} other {warnings}}
+	/**
+	 * Names of the arguments a message expects, those inside sub-messages included.
+	 *
+	 * <p>A regular expression is not enough. ICU nests messages inside {@code plural} and
+	 * {@code select} arguments, and a branch body is translatable text, not an argument name:
+	 *
+	 * <pre>
+	 * {conditions} {conditions, plural, one {failed condition} other {failed conditions}}
+	 * {show, select, true {Show} other {Hide}} multiple issues on this line
+	 * </pre>
+	 *
+	 * <p>Each of those takes exactly one argument, {@code conditions} and {@code show}. The
+	 * previous pattern special-cased the {@code plural} form but read every other brace pair
+	 * as an argument, so it saw "Show" and "Hide" as argument names and then required the
+	 * French file to keep them in English in order to match. Ten {@code select} messages were
+	 * untranslatable for that reason alone.
 	 */
-	private static final Pattern REGEX_PLACEHOLDER = Pattern.compile("\\{(?<name>[^{}]+)(, plural, one \\{[^{}]+} other \\{[^{}]+})?}");
-
-
 	private TreeSet<String> extractPlaceHolders(String value) {
-		var matcher = REGEX_PLACEHOLDER.matcher(value);
-		TreeSet<String> result = new TreeSet<String>();
-		while (matcher.find()) {
-			result.add(matcher.group(1));
-		}
+		TreeSet<String> result = new TreeSet<>();
+		collectArguments(value, result);
 		return result;
+	}
+
+	/** Argument types whose tail is a list of {@code keyword {sub-message}} pairs. */
+	private static final List<String> SUB_MESSAGE_TYPES = List.of("plural", "select", "selectordinal");
+
+	private static void collectArguments(String message, TreeSet<String> result) {
+		for (int i = 0; i < message.length(); i++) {
+			if (message.charAt(i) != '{') {
+				continue;
+			}
+			int end = matchingBrace(message, i);
+			if (end < 0) {
+				// Unbalanced braces: nothing sensible left to read.
+				return;
+			}
+			String body = message.substring(i + 1, end);
+			int comma = body.indexOf(',');
+			result.add((comma < 0 ? body : body.substring(0, comma)).trim());
+			if (comma >= 0) {
+				collectSubMessages(body.substring(comma + 1).trim(), result);
+			}
+			i = end;
+		}
+	}
+
+	private static void collectSubMessages(String remainder, TreeSet<String> result) {
+		int comma = remainder.indexOf(',');
+		if (comma < 0 || !SUB_MESSAGE_TYPES.contains(remainder.substring(0, comma).trim())) {
+			// Formats such as `number` or `date` carry no sub-message.
+			return;
+		}
+		String branches = remainder.substring(comma + 1);
+		for (int i = 0; i < branches.length(); i++) {
+			if (branches.charAt(i) != '{') {
+				continue;
+			}
+			int end = matchingBrace(branches, i);
+			if (end < 0) {
+				return;
+			}
+			collectArguments(branches.substring(i + 1, end), result);
+			i = end;
+		}
+	}
+
+	private static int matchingBrace(String message, int open) {
+		int depth = 0;
+		for (int i = open; i < message.length(); i++) {
+			char c = message.charAt(i);
+			if (c == '{') {
+				++depth;
+			} else if (c == '}' && --depth == 0) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	@Test
