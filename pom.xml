@@ -237,7 +237,7 @@
 									<version>3.8.7</version>
 								</requireMavenVersion>
 								<requireFilesSize>
-									<minsize>60000</minsize>
+									<minsize>95000</minsize>
 									<maxsize>400000</maxsize>
 									<files>
 										<file>${project.build.directory}/${project.artifactId}-${project.version}.jar</file>
