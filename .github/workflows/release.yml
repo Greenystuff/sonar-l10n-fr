@@ -1,0 +1,76 @@
+name: Release
+on:
+  push:
+    tags:
+      # The shape maven-git-versioning-extension already recognises, in .mvn: a bare
+      # version, optionally prefixed with v. Upstream tags read 9.9.2, so no prefix.
+      - '[0-9]+.[0-9]+.[0-9]+*'
+      # ...but not the local builds. A `-local` suffix marks a jar built for one
+      # instance, never something to publish -- and the pattern above would otherwise
+      # match 26.9.0-local.10 and release it.
+      - '![0-9]+.[0-9]+.[0-9]+-local*'
+
+permissions:
+  # gh release create writes to the repository. Nothing else is needed.
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish the plugin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # maven-git-versioning-extension reads the tag from git metadata to set the
+          # artifact version. A shallow clone has no tags, and the build would fall back
+          # to the commit hash.
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      # The same command the Build workflow runs. A release that skipped the harness
+      # would defeat its purpose: the tests are what guarantee the bundle is in sync with
+      # the reference, escaped, and typographically correct.
+      - name: Build and run the test harness
+        run: mvn -B clean verify
+
+      - name: Compute the checksum
+        id: artifact
+        working-directory: target
+        run: |
+          jar=$(ls sonar-l10n-fr-plugin-*.jar)
+          # Run from target/ so the checksum file names the jar alone, and verifying is
+          # just `sha256sum -c` next to the download.
+          sha256sum "$jar" | tee "$jar.sha256"
+          echo "jar=target/$jar" >> "$GITHUB_OUTPUT"
+
+      # Sonar-Version is a FLOOR, not a target: the server refuses to start when its own
+      # plugin API is older than what the manifest declares. Shipping the compile version
+      # there would lock the pack to the newest SonarQube for no reason, so the build sets
+      # it explicitly through pluginApiMinVersion. This asserts the two still agree.
+      - name: Check the declared API floor
+        run: |
+          expected=$(mvn -q -B help:evaluate \
+            -Dexpression=sonar.plugin.api.min.version -DforceStdout)
+          actual=$(unzip -p "${{ steps.artifact.outputs.jar }}" META-INF/MANIFEST.MF \
+            | sed -n 's/^Sonar-Version: //p' | tr -d '\r')
+          echo "pom: $expected | manifest: $actual"
+          [ "$expected" = "$actual" ] || {
+            echo "::error::Sonar-Version ($actual) is not the floor the pom declares ($expected)"
+            exit 1
+          }
+
+      - name: Publish the release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          gh release create "${{ github.ref_name }}"
+          "${{ steps.artifact.outputs.jar }}"
+          "${{ steps.artifact.outputs.jar }}.sha256"
+          --title "${{ github.ref_name }}"
+          --generate-notes
