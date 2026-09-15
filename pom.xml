@@ -276,6 +276,9 @@
 		<profile>
 			<!-- Regenerates core_fr.properties from the reference bundle. See BundleSync. -->
 			<id>sync</id>
+			<properties>
+				<l10n.tool>org.sonar.plugins.l10n.BundleSync</l10n.tool>
+			</properties>
 			<build>
 				<plugins>
 					<plugin>
@@ -283,7 +286,9 @@
 						<artifactId>exec-maven-plugin</artifactId>
 						<version>3.6.4</version>
 						<configuration>
-							<mainClass>org.sonar.plugins.l10n.BundleSync</mainClass>
+							<!-- Overridable, so the same profile can run the other tool:
+							     -Dl10n.tool=org.sonar.plugins.l10n.WebappKeys -->
+							<mainClass>${l10n.tool}</mainClass>
 							<classpathScope>test</classpathScope>
 						</configuration>
 					</plugin>
