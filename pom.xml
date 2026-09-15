@@ -64,16 +64,16 @@
 		<revision>develop-SNAPSHOT</revision>
 
 		<sonar.pluginClass>org.sonar.plugins.l10n.FrenchPackPlugin</sonar.pluginClass>
-		<sonar.version>10.0.0.68432</sonar.version>
+		<sonar.version>26.9.0.129388</sonar.version>
 
 		<maven.build.timestamp.format>yyyy-MM-dd'T'HH:mm:ss.SSSZ</maven.build.timestamp.format>
 		<!--suppress UnresolvedMavenProperty -->
 		<project.build.outputTimestamp>${git.commit.timestamp.datetime}</project.build.outputTimestamp>
 
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<maven.compiler.source>11</maven.compiler.source>
-		<maven.compiler.target>11</maven.compiler.target>
-		<maven.compiler.release>11</maven.compiler.release>
+		<maven.compiler.source>17</maven.compiler.source>
+		<maven.compiler.target>17</maven.compiler.target>
+		<maven.compiler.release>17</maven.compiler.release>
 
 		<sonar.organization>jycr</sonar.organization>
 		<sonar.host.url>https://sonarcloud.io</sonar.host.url>
@@ -83,7 +83,7 @@
 		<dependency>
 			<groupId>org.sonarsource.api.plugin</groupId>
 			<artifactId>sonar-plugin-api</artifactId>
-			<version>9.14.0.375</version>
+			<version>14.0.0.4498</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
@@ -92,18 +92,45 @@
 			<version>${sonar.version}</version>
 			<scope>test</scope>
 		</dependency>
+		<!-- SonarRuntimeImpl and PluginContextImpl used to live in org.sonar.api.internal
+		     inside sonar-plugin-api. They were dropped from the public API and now ship
+		     here. Only those two classes are needed, so the transitive tree is excluded. -->
+		<dependency>
+			<groupId>org.sonarsource.sonarqube</groupId>
+			<artifactId>sonar-plugin-api-impl</artifactId>
+			<version>${sonar.version}</version>
+			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>*</groupId>
+					<artifactId>*</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 		<dependency>
 			<groupId>org.assertj</groupId>
 			<artifactId>assertj-core</artifactId>
-			<version>3.24.2</version>
+			<version>3.27.7</version>
 			<scope>test</scope>
 		</dependency>
-		<!-- Dependencies which are translated by this language pack -->
+		<!-- Dependencies which are translated by this language pack.
+		     Only one file is used from this artifact: org/sonar/l10n/core.properties, the
+		     reference bundle the tests compare core_fr.properties against. None of its code
+		     is executed, so the whole transitive tree is excluded. That is not just a
+		     build-time saving: since 26.x, sonar-core depends on org.sonarsource.sonarqube:
+		     sonar-sarif, which is NOT published to Maven Central, so the build cannot
+		     resolve it at all without this exclusion. -->
 		<dependency>
 			<groupId>org.sonarsource.sonarqube</groupId>
 			<artifactId>sonar-core</artifactId>
 			<version>${sonar.version}</version>
 			<scope>test</scope>
+			<exclusions>
+				<exclusion>
+					<groupId>*</groupId>
+					<artifactId>*</artifactId>
+				</exclusion>
+			</exclusions>
 		</dependency>
 	</dependencies>
 
@@ -122,13 +149,13 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-compiler-plugin</artifactId>
-					<version>3.11.0</version>
+					<version>3.16.0</version>
 				</plugin>
 
 				<plugin>
 					<groupId>me.qoomon</groupId>
 					<artifactId>maven-git-versioning-extension</artifactId>
-					<version>9.6.5</version>
+					<version>9.12.1</version>
 				</plugin>
 			</plugins>
 		</pluginManagement>
@@ -136,40 +163,41 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<version>3.1.0</version>
+				<version>3.6.0</version>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-clean-plugin</artifactId>
-				<version>3.2.0</version>
+				<version>3.5.0</version>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-install-plugin</artifactId>
-				<version>3.1.1</version>
+				<version>3.1.4</version>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-site-plugin</artifactId>
-				<version>3.12.1</version>
+				<version>3.22.0</version>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-resources-plugin</artifactId>
-				<version>3.3.1</version>
+				<version>3.5.0</version>
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-deploy-plugin</artifactId>
-				<version>3.1.1</version>
+				<version>3.1.4</version>
 			</plugin>
 			<plugin>
 				<groupId>org.sonarsource.sonar-packaging-maven-plugin</groupId>
 				<artifactId>sonar-packaging-maven-plugin</artifactId>
-				<version>1.21.0.505</version>
+				<version>1.25.1.3002</version>
 				<extensions>true</extensions>
 				<configuration>
-					<basePlugin>l10nen</basePlugin>
+					<!-- No basePlugin: since SonarQube 5.2 the server logs "This metadata can be
+					     removed from manifest of l10n plugins" when it is present. -->
 					<pluginName>French Pack</pluginName>
 					<pluginDescription>Language pack for French</pluginDescription>
 				</configuration>
@@ -178,7 +206,7 @@
 			<plugin>
 				<groupId>org.codehaus.mojo</groupId>
 				<artifactId>native2ascii-maven-plugin</artifactId>
-				<version>2.0.1</version>
+				<version>2.1.1</version>
 				<executions>
 					<execution>
 						<goals>
@@ -195,7 +223,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-enforcer-plugin</artifactId>
-				<version>3.3.0</version>
+				<version>3.6.3</version>
 				<executions>
 					<execution>
 						<id>enforce-distribution-size</id>
@@ -209,8 +237,8 @@
 									<version>3.8.7</version>
 								</requireMavenVersion>
 								<requireFilesSize>
-									<minsize>36000</minsize>
-									<maxsize>100000</maxsize>
+									<minsize>60000</minsize>
+									<maxsize>400000</maxsize>
 									<files>
 										<file>${project.build.directory}/${project.artifactId}-${project.version}.jar</file>
 									</files>
@@ -225,7 +253,7 @@
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
-				<version>0.8.10</version>
+				<version>0.8.15</version>
 				<executions>
 					<execution>
 						<id>prepare-agent</id>

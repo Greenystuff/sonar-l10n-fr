@@ -6,35 +6,44 @@ on:
       - develop
   pull_request:
     types: [opened, synchronize, reopened]
+
 jobs:
   build:
     name: Build and analyze
     runs-on: ubuntu-latest
+    env:
+      # Declared at job level so that the `if:` guard below can read it. Secrets are not
+      # exposed to workflows triggered from a fork, so this is empty for outside
+      # contributors -- which is exactly what the guard tests.
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
-      - name: Set up JDK 11
-        uses: actions/setup-java@v2
+          # Shallow clones would hurt the relevancy of the analysis, and
+          # maven-git-versioning-extension derives the version from git metadata.
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: 11
-      - name: Cache SonarCloud packages
-        id: cache-sonnarscanner
-        uses: actions/cache@v3
-        with:
-          path: ~/.sonar/cache
-          key: ${{ runner.os }}-sonar
-          restore-keys: ${{ runner.os }}-sonar
-      - name: Cache Maven packages
-        id: cache-maven
-        uses: actions/cache@v3
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
-      - name: Build and analyze
+          distribution: temurin
+          # 17, not 11: sonar-core and sonar-testing-harness 26.x are compiled with class
+          # file major version 61.
+          java-version: 17
+          # Replaces the hand-rolled actions/cache step for ~/.m2.
+          cache: maven
+
+      - name: Build
+        run: mvn -B clean verify
+
+      - name: Analyze on SonarQube Cloud
+        # Without this guard every pull request opened from a fork fails: the analysis
+        # cannot authenticate, and the build is reported red for a reason that has nothing
+        # to do with the contribution. The build step above still gates the PR.
+        if: ${{ env.SONAR_TOKEN != '' }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn -B clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=jycr_sonar-l10n-fr
+          # Needed to get PR information, if any
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar
+          -Dsonar.projectKey=jycr_sonar-l10n-fr
