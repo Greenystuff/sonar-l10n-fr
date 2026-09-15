@@ -31,6 +31,7 @@ import java.nio.file.Paths;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -61,6 +62,7 @@ import java.util.regex.Pattern;
 public final class WebappKeys {
 
   private static final Path REPORT = Paths.get("target/webapp-keys.properties");
+  private static final Path UNDEFINED = Paths.get("target/webapp-keys-undefined.txt");
 
   /** Script tags in index.html, which is where the bundle names are. */
   private static final Pattern SCRIPT = Pattern.compile("src=\"([^\"]+\\.js)\"");
@@ -73,9 +75,29 @@ public final class WebappKeys {
   private static final Pattern QUOTED_ENTRY =
     Pattern.compile("\"([a-z][A-Za-z0-9_]*(?:\\.[A-Za-z0-9_\\-]+)+)\":\"((?:[^\"\\\\]|\\\\.)*)\"");
 
+  /**
+   * The same entry, written with a single-quoted value. The minifier switches quotes when the
+   * message itself contains a double quote, which happens wherever the English quotes an
+   * argument -- {@code Copy permalink to current issue: "{title}"}. Sixty-nine keys were
+   * invisible to {@link #QUOTED_ENTRY} for that reason alone.
+   */
+  private static final Pattern SINGLE_QUOTED_ENTRY =
+    Pattern.compile("\"([a-z][A-Za-z0-9_]*(?:\\.[A-Za-z0-9_\\-]+)+)\":'((?:[^'\\\\]|\\\\.)*)'");
+
   /** Unquoted key mapped to a quoted string, for the single-word keys such as {@code username}. */
   private static final Pattern BARE_ENTRY =
     Pattern.compile("[{,]([a-z][a-z0-9_]{2,}):\"((?:[^\"\\\\]|\\\\.)*)\"");
+
+  /**
+   * A key the code asks for, rather than one the catalogue defines. Only
+   * {@code formatMessage({id: "..."})} counts: an {@code id} in any other object is a DOM
+   * identifier, as in {@code <TextField id="name.github">}, and not a message at all.
+   *
+   * <p>A key asked for but never defined is an upstream bug -- react-intl renders the key
+   * itself on screen -- and a translation the pack can supply, since nothing else does.
+   */
+  private static final Pattern REFERENCED =
+    Pattern.compile("formatMessage\\s*\\(\\s*\\{\\s*id:\\s*\"([a-zA-Z][A-Za-z0-9_]*(?:\\.[A-Za-z0-9_\\-]+)+)\"");
 
   private WebappKeys() {
     // utility class
@@ -96,10 +118,16 @@ public final class WebappKeys {
     }
 
     TreeMap<String, String> messages = new TreeMap<>();
+    Set<String> referenced = new TreeSet<>();
     for (String script : scripts) {
       String body = get(client, script.startsWith("http") ? script : base + script);
       collect(QUOTED_ENTRY, body, messages, true);
+      collect(SINGLE_QUOTED_ENTRY, body, messages, true);
       collect(BARE_ENTRY, body, messages, false);
+      Matcher asked = REFERENCED.matcher(body);
+      while (asked.find()) {
+        referenced.add(asked.group(1));
+      }
     }
 
     StringBuilder out = new StringBuilder();
@@ -107,8 +135,13 @@ public final class WebappKeys {
     Files.createDirectories(REPORT.getParent());
     Files.write(REPORT, out.toString().getBytes(StandardCharsets.UTF_8));
 
+    referenced.removeAll(messages.keySet());
+    Files.write(UNDEFINED, String.join("\n", referenced).getBytes(StandardCharsets.UTF_8));
+
     System.out.printf("%d messages read from %d bundle(s) at %s%n", messages.size(), scripts.size(), base);
     System.out.println("Written to " + REPORT);
+    System.out.printf("%d key(s) the code asks for but nothing defines -- see %s%n",
+      referenced.size(), UNDEFINED);
   }
 
   private static void collect(Pattern pattern, String body, TreeMap<String, String> into, boolean overwrite) {
